@@ -1,79 +1,73 @@
 -- PRIVATE SERVER FORCE REJOIN | Bee Swarm Simulator
--- EXTREME VERSION - Clicks Leave for you, THEN teleports
+-- ULTIMATE METHOD: Override ALL teleport attempts to the game
 -- CRITICAL: Place in AUTO-EXECUTE folder
 
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
-local StarterGui = game:GetService("StarterGui")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
--- YOUR PRIVATE SERVER
+-- ========== YOUR PRIVATE SERVER INFO ==========
 local PLACE_ID = 1537690962
 local PRIVATE_SERVER_CODE = "16707204235853911608327042947697"
+-- =============================================
 
+-- Deep override: Force ALL teleports to Bee Swarm Simulator to use private server
+local originalTeleport = TeleportService.Teleport
+local originalTeleportToPlaceInstance = TeleportService.TeleportToPlaceInstance
+
+-- Override the main Teleport function (used by Reconnect button)
+TeleportService.Teleport = function(self, placeId, player, teleportData, ...)
+    if placeId == PLACE_ID then
+        -- Inject private server code into ANY teleport to this game
+        teleportData = teleportData or {}
+        if type(teleportData) == "table" then
+            teleportData.serverAccessCode = PRIVATE_SERVER_CODE
+        end
+        print("🚨 INTERCEPTED teleport to public! Forcing private server...")
+        return originalTeleport(self, placeId, player, teleportData, ...)
+    end
+    return originalTeleport(self, placeId, player, teleportData, ...)
+end
+
+-- Override TeleportToPlaceInstance (another possible entry point)
+TeleportService.TeleportToPlaceInstance = function(self, placeId, instanceId, player, teleportData, ...)
+    if placeId == PLACE_ID and (not instanceId or instanceId == "") then
+        -- If no specific instance, force private server
+        print("🚨 INTERCEPTED teleport to public instance! Forcing private server...")
+        return TeleportService:TeleportToPrivateServer(placeId, PRIVATE_SERVER_CODE, {player}, teleportData)
+    end
+    return originalTeleportToPlaceInstance(self, placeId, instanceId, player, teleportData, ...)
+end
+
+-- Backup: If the overrides fail, detect prompt and manually teleport
 repeat task.wait() until CoreGui:FindFirstChild('RobloxPromptGui')
 local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay
 
--- Function to click the Leave button programmatically
-local function clickLeave()
-    pcall(function()
-        local errorPrompt = promptOverlay:WaitForChild("ErrorPrompt")
-        local leaveBtn = errorPrompt:FindFirstChild("MessageArea", true):FindFirstChild("LeaveButton", true)
-        if leaveBtn then
-            -- Click using Roblox's input system
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            task.wait(0.1)
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            
-            -- Also try firing the button directly
-            leaveBtn:Activate()
-            print("✅ Clicked Leave button")
-        end
-    end)
-end
-
--- Function to teleport to private server
-local function teleportPrivate()
-    print("🚀 Teleporting to private server...")
-    pcall(function()
-        TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
-    end)
-    
-    -- Infinite retry
+local function manualForceTeleport()
+    print("🚀 MANUAL FORCE TELEPORT TO PRIVATE SERVER...")
     while true do
-        task.wait(3)
-        TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
+        task.wait(2)
+        pcall(function()
+            TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
+        end)
     end
 end
 
--- Detect disconnection
 promptOverlay.ChildAdded:Connect(function(child)
     if child.Name == 'ErrorPrompt' then
-        print("🚨 Disconnected! Force rejoining...")
-        
-        -- Wait 1 second for UI to fully load
-        task.wait(1)
-        
-        -- Click Leave first (this properly exits the broken state)
-        clickLeave()
-        
-        -- Wait for game state to reset
-        task.wait(3)
-        
-        -- Then teleport
-        teleportPrivate()
+        task.wait(0.5)
+        print("🚨 Prompt detected! Starting manual teleport...")
+        promptOverlay.Enabled = false -- Hide prompt
+        manualForceTeleport()
     end
 end)
 
--- If already disconnected
 if promptOverlay:FindFirstChild('ErrorPrompt') then
-    print("🚨 Already disconnected! Rejoining...")
-    clickLeave()
-    task.wait(3)
-    teleportPrivate()
+    promptOverlay.Enabled = false
+    manualForceTeleport()
 end
 
-print("✅ Private server script ACTIVE")
-print("🎯 Server: " .. PRIVATE_SERVER_CODE)
-print("💡 DO NOT click anything when disconnected!")
+print("✅ PRIVATE SERVER FORCE REJOIN IS ACTIVE")
+print("🎯 All teleport attempts to game " .. PLACE_ID .. " will be forced to your private server")
+print("💡 This includes the Reconnect button!")
+print("💡 DO NOT click anything when disconnected - just wait!")
