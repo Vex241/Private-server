@@ -1,0 +1,27 @@
+-- Rejoin private server on disconnect
+-- Bee Swarm Simulator Private Server Only
+
+local TeleportService = game:GetService("TeleportService")
+local CoreGui = game:GetService("CoreGui")
+
+-- PRIVATE SERVER CONFIGURATION
+local PLACE_ID = 1537690962
+local PRIVATE_SERVER_CODE = "16707204235853911608327042947697"
+
+-- Wait for Roblox prompt GUI to load
+repeat task.wait() until CoreGui:FindFirstChild('RobloxPromptGui')
+
+local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay
+
+-- Detect disconnection and rejoin private server
+promptOverlay.ChildAdded:Connect(function(child)
+    if child.Name == 'ErrorPrompt' then
+        print("⚠️ Disconnected! Rejoining private server...")
+        while true do
+            TeleportService:TeleportToPlaceInstance(PLACE_ID, PRIVATE_SERVER_CODE)
+            task.wait(2) -- Wait before retrying
+        end
+    end
+end)
+
+print("✅ Private server rejoin script active")
