@@ -1,112 +1,26 @@
--- PRIVATE SERVER FORCE REJOIN | Bee Swarm Simulator
--- EXTREME VERSION 2.0 - Clicks Leave then Teleports
--- CRITICAL: Place in AUTO-EXECUTE folder
+--Auto execute highly recommended (use it)
+gui = game.CoreGui.RobloxPromptGui.promptOverlay:WaitForChild("ErrorPrompt")
 
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local StarterGui = game:GetService("StarterGui")
-local VirtualInputManager = game:GetService("VirtualInputManager")
+gui.Size = UDim2.new(0, 400, 0, 230)
 
--- ========== CONFIGURATION ==========
-local PLACE_ID = 1537690962
-local PRIVATE_SERVER_CODE = "16707204235853911608327042947697"
--- ===================================
+leave = gui.MessageArea.ErrorFrame.ButtonArea.LeaveButton
 
--- Wait for CoreGui to be ready
-repeat task.wait() until CoreGui:FindFirstChild('RobloxPromptGui')
-local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay
+gui.MessageArea.MessageAreaPadding.PaddingTop = UDim.new(0,-20)
+gui.MessageArea.ErrorFrame.ErrorFrameLayout.Padding = UDim.new(0, 5)
 
--- Function to click the "Leave" button on the error prompt
-local function clickLeaveButton()
-    pcall(function()
-        local errorPrompt = promptOverlay:FindFirstChild('ErrorPrompt')
-        if errorPrompt then
-            -- Look for buttons within the prompt
-            local buttonContainer = errorPrompt:FindFirstChild('ButtonContainer')
-            if buttonContainer then
-                local leaveButton = buttonContainer:FindFirstChild('Leave') or 
-                                   buttonContainer:FindFirstChild('Button1') or
-                                   buttonContainer:GetChildren()[1] -- First button is usually Leave
-                if leaveButton then
-                    -- Simulate a click
-                    pcall(function()
-                        StarterGui:SetCore("PromptButtonPressed", leaveButton)
-                    end)
-                    
-                    -- Also try mouse click simulation at center of button
-                    local buttonPos = leaveButton.AbsolutePosition
-                    local buttonSize = leaveButton.AbsoluteSize
-                    local x = buttonPos.X + buttonSize.X / 2
-                    local y = buttonPos.Y + buttonSize.Y / 2
-                    
-                    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-                    task.wait(0.1)
-                    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
-                    
-                    print("✅ Clicked Leave button")
-                    return true
-                end
-            end
-        end
-    end)
-    return false
-end
+gui.MessageArea.ErrorFrame.ButtonArea.ButtonLayout.CellPadding = UDim2.new(0, 0, 0, 5)
 
--- Function to FORCE teleport to private server
-local function forceTeleportToPrivateServer()
-    print("🚨 FORCE TELEPORTING TO PRIVATE SERVER...")
-    
-    -- First try to click Leave to properly exit the disconnection state
-    clickLeaveButton()
-    
-    -- Wait a moment for the prompt to close and state to reset
-    task.wait(2)
-    
-    -- Now try to teleport using the PRIVATE SERVER function
-    local success, err = pcall(function()
-        TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
-    end)
-    
-    if success then
-        print("✅ TeleportToPrivateServer initiated!")
-    else
-        warn("❌ TeleportToPrivateServer failed: " .. tostring(err))
-        -- Fallback to regular teleport with private server code
-        local success2, err2 = pcall(function()
-            TeleportService:Teleport(PLACE_ID, Players.LocalPlayer, nil, PRIVATE_SERVER_CODE)
-        end)
-        if success2 then
-            print("✅ Fallback teleport initiated!")
-        else
-            warn("❌ Fallback also failed: " .. tostring(err2))
-        end
-    end
-    
-    -- AGGRESSIVE retry every 2 seconds - never give up
-    while true do
-        task.wait(2)
-        pcall(function()
-            TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
-        end)
-    end
-end
+rejoin = leave:Clone()
+rejoin.Parent = leave.Parent
+rejoin.ButtonText.Text = "Rejoin"
 
--- Detect disconnection prompt
-promptOverlay.ChildAdded:Connect(function(child)
-    if child.Name == 'ErrorPrompt' then
-        print("🚨 DISCONNECTION DETECTED! Force rejoining private server...")
-        task.wait(0.5)
-        forceTeleportToPrivateServer()
-    end
+Players = game:GetService("Players")
+TeleportService = game:GetService("TeleportService")
+
+rejoin.MouseButton1Up:Connect(function()
+	if #Players:GetPlayers() <= 1 then
+		TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
+	else
+		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
+	end
 end)
-
--- Also check if prompt is already there (in case script loads after disconnect)
-if promptOverlay:FindFirstChild('ErrorPrompt') then
-    print("🚨 Error prompt already detected! Force rejoining...")
-    forceTeleportToPrivateServer()
-end
-
-print("✅ PRIVATE SERVER FORCE REJOIN SCRIPT ACTIVE")
-print("🎯 Target: " .. PRIVATE_SERVER_CODE)
-print("💡 DO NOT click anything when disconnected - let script handle it!")
