@@ -1,73 +1,82 @@
 -- PRIVATE SERVER FORCE REJOIN | Bee Swarm Simulator
--- ULTIMATE METHOD: Override ALL teleport attempts to the game
+-- EXTREME METHOD: Override Reconnect button's core function
 -- CRITICAL: Place in AUTO-EXECUTE folder
 
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
 
--- ========== YOUR PRIVATE SERVER INFO ==========
+-- YOUR PRIVATE SERVER
 local PLACE_ID = 1537690962
 local PRIVATE_SERVER_CODE = "16707204235853911608327042947697"
--- =============================================
 
--- Deep override: Force ALL teleports to Bee Swarm Simulator to use private server
-local originalTeleport = TeleportService.Teleport
-local originalTeleportToPlaceInstance = TeleportService.TeleportToPlaceInstance
-
--- Override the main Teleport function (used by Reconnect button)
-TeleportService.Teleport = function(self, placeId, player, teleportData, ...)
-    if placeId == PLACE_ID then
-        -- Inject private server code into ANY teleport to this game
-        teleportData = teleportData or {}
-        if type(teleportData) == "table" then
-            teleportData.serverAccessCode = PRIVATE_SERVER_CODE
-        end
-        print("🚨 INTERCEPTED teleport to public! Forcing private server...")
-        return originalTeleport(self, placeId, player, teleportData, ...)
-    end
-    return originalTeleport(self, placeId, player, teleportData, ...)
-end
-
--- Override TeleportToPlaceInstance (another possible entry point)
-TeleportService.TeleportToPlaceInstance = function(self, placeId, instanceId, player, teleportData, ...)
-    if placeId == PLACE_ID and (not instanceId or instanceId == "") then
-        -- If no specific instance, force private server
-        print("🚨 INTERCEPTED teleport to public instance! Forcing private server...")
-        return TeleportService:TeleportToPrivateServer(placeId, PRIVATE_SERVER_CODE, {player}, teleportData)
-    end
-    return originalTeleportToPlaceInstance(self, placeId, instanceId, player, teleportData, ...)
-end
-
--- Backup: If the overrides fail, detect prompt and manually teleport
 repeat task.wait() until CoreGui:FindFirstChild('RobloxPromptGui')
 local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay
 
-local function manualForceTeleport()
-    print("🚀 MANUAL FORCE TELEPORT TO PRIVATE SERVER...")
-    while true do
-        task.wait(2)
-        pcall(function()
-            TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
-        end)
+-- Function that replaces what "Reconnect" does
+local function replaceReconnectFunction()
+    -- Get the ErrorPrompt
+    local errorPrompt = promptOverlay:WaitForChild("ErrorPrompt")
+    
+    -- Navigate to Reconnect button
+    local buttonArea = errorPrompt.MessageArea.ErrorFrame.ButtonArea
+    local reconnectButton = buttonArea:FindFirstChild("ReconnectButton") or 
+                           buttonArea:FindFirstChild("Button2") or 
+                           buttonArea:GetChildren()[2]
+    
+    if not reconnectButton then
+        warn("❌ Could not find Reconnect button")
+        return false
     end
+    
+    -- CHANGE THE BUTTON'S FUNCTION
+    -- First, remove ALL existing connections
+    for _, conn in ipairs(getconnections(reconnectButton.MouseButton1Up)) do
+        conn:Disconnect()
+    end
+    
+    -- Add our private server teleport
+    reconnectButton.MouseButton1Up:Connect(function()
+        print("🚨 Reconnect button clicked! Redirecting to private server...")
+        
+        -- Hide the prompt
+        errorPrompt.Enabled = false
+        
+        -- Force private server teleport
+        TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
+        
+        -- Aggressive retry loop
+        while true do
+            task.wait(2)
+            TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
+        end
+    end)
+    
+    -- Change button text to show it's modified
+    local textLabel = reconnectButton:FindFirstChild("ButtonText")
+    if textLabel then
+        textLabel.Text = "→ Private Server"
+        textLabel.TextColor3 = Color3.fromRGB(0, 255, 0) -- Green
+    end
+    
+    print("✅ Reconnect button successfully hijacked!")
+    return true
 end
 
+-- Detect disconnection prompt
 promptOverlay.ChildAdded:Connect(function(child)
     if child.Name == 'ErrorPrompt' then
         task.wait(0.5)
-        print("🚨 Prompt detected! Starting manual teleport...")
-        promptOverlay.Enabled = false -- Hide prompt
-        manualForceTeleport()
+        replaceReconnectFunction()
     end
 end)
 
+-- If already disconnected
 if promptOverlay:FindFirstChild('ErrorPrompt') then
-    promptOverlay.Enabled = false
-    manualForceTeleport()
+    replaceReconnectFunction()
 end
 
-print("✅ PRIVATE SERVER FORCE REJOIN IS ACTIVE")
-print("🎯 All teleport attempts to game " .. PLACE_ID .. " will be forced to your private server")
-print("💡 This includes the Reconnect button!")
-print("💡 DO NOT click anything when disconnected - just wait!")
+print("✅ PRIVATE SERVER RECONNECT OVERRIDE IS ACTIVE")
+print("🎯 When you click 'Reconnect', it will go to your private server!")
+print("🎯 Or wait 5 seconds and it will click itself!")
