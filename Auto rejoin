@@ -1,26 +1,83 @@
---Auto execute highly recommended (use it)
-gui = game.CoreGui.RobloxPromptGui.promptOverlay:WaitForChild("ErrorPrompt")
+-- Private Server Rejoin Button | Bee Swarm Simulator
+-- Place in AUTO-EXECUTE folder
 
-gui.Size = UDim2.new(0, 400, 0, 230)
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
 
-leave = gui.MessageArea.ErrorFrame.ButtonArea.LeaveButton
+-- YOUR PRIVATE SERVER INFO
+local PLACE_ID = 1537690962
+local PRIVATE_SERVER_CODE = "16707204235853911608327042947697"
 
-gui.MessageArea.MessageAreaPadding.PaddingTop = UDim.new(0,-20)
-gui.MessageArea.ErrorFrame.ErrorFrameLayout.Padding = UDim.new(0, 5)
+-- Wait for disconnection UI to load
+repeat task.wait() until CoreGui:FindFirstChild('RobloxPromptGui')
+local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay
 
-gui.MessageArea.ErrorFrame.ButtonArea.ButtonLayout.CellPadding = UDim2.new(0, 0, 0, 5)
+-- Function to add the private server button
+local function addPrivateServerButton()
+    local errorPrompt = promptOverlay:WaitForChild("ErrorPrompt")
+    
+    -- Resize to fit 3 buttons
+    errorPrompt.Size = UDim2.new(0, 400, 0, 280)
+    
+    -- Navigate UI hierarchy
+    local messageArea = errorPrompt:WaitForChild("MessageArea")
+    local errorFrame = messageArea:WaitForChild("ErrorFrame")
+    local buttonArea = errorFrame:WaitForChild("ButtonArea")
+    local leaveButton = buttonArea:WaitForChild("LeaveButton")
+    
+    -- Clone Leave button
+    local privateButton = leaveButton:Clone()
+    privateButton.Parent = buttonArea
+    privateButton.Name = "PrivateServerButton"
+    
+    -- Change text
+    local buttonText = privateButton:FindFirstChild("ButtonText")
+    if buttonText then
+        buttonText.Text = "Rejoin Private"
+    end
+    
+    -- Adjust spacing
+    local layout = buttonArea:FindFirstChild("ButtonLayout") or buttonArea:FindFirstChild("UIListLayout")
+    if layout then
+        layout.Padding = UDim.new(0, 5)
+    end
+    
+    -- Connect click to private server teleport
+    privateButton.MouseButton1Up:Connect(function()
+        print("🚨 Rejoining private server...")
+        errorPrompt.Enabled = false
+        
+        -- Force teleport
+        pcall(function()
+            TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
+        end)
+        
+        -- Aggressive retry
+        while true do
+            task.wait(2)
+            pcall(function()
+                TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
+            end)
+        end
+    end)
+    
+    print("✅ Private server button added!")
+end
 
-rejoin = leave:Clone()
-rejoin.Parent = leave.Parent
-rejoin.ButtonText.Text = "Rejoin"
-
-Players = game:GetService("Players")
-TeleportService = game:GetService("TeleportService")
-
-rejoin.MouseButton1Up:Connect(function()
-	if #Players:GetPlayers() <= 1 then
-		TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
-	else
-		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
-	end
+-- Add button when disconnected
+promptOverlay.ChildAdded:Connect(function(child)
+    if child.Name == 'ErrorPrompt' then
+        task.wait(0.5)
+        addPrivateServerButton()
+    end
 end)
+
+-- If already disconnected
+if promptOverlay:FindFirstChild('ErrorPrompt') then
+    addPrivateServerButton()
+end
+
+print("✅ Private server button script ready")
+print("🎯 Target: " .. PRIVATE_SERVER_CODE)
+print("💡 When disconnected, click the new 'Rejoin Private' button!")
