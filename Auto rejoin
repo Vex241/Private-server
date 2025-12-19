@@ -1,33 +1,70 @@
--- PRIVATE SERVER REJOIN | Bee Swarm Simulator
+-- PRIVATE SERVER FORCE REJOIN | Bee Swarm Simulator
+-- EXTREME VERSION - Completely re-coded
 -- CRITICAL: Place in AUTO-EXECUTE folder
 
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
 
--- YOUR PRIVATE SERVER DETAILS
+-- ========== CONFIGURATION ==========
 local PLACE_ID = 1537690962
 local PRIVATE_SERVER_CODE = "16707204235853911608327042947697"
+-- ===================================
 
--- Wait for error prompt UI to load
+-- Wait for CoreGui to be ready
 repeat task.wait() until CoreGui:FindFirstChild('RobloxPromptGui')
 local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay
 
--- When disconnected, force private server join
+-- Function to FORCE teleport to private server
+local function forceTeleportToPrivateServer()
+    print("🚨 FORCE TELEPORTING TO PRIVATE SERVER...")
+    
+    -- Try to prevent any user interaction
+    pcall(function()
+        promptOverlay.Enabled = false
+        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
+    end)
+    
+    -- Use the CORRECT function for private servers
+    local success, err = pcall(function()
+        TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
+    end)
+    
+    if success then
+        print("✅ Teleport initiated successfully!")
+    else
+        warn("❌ Teleport failed: " .. tostring(err))
+    end
+    
+    -- AGGRESSIVE retry every 2 seconds until it works
+    while true do
+        task.wait(2)
+        pcall(function()
+            TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
+        end)
+    end
+end
+
+-- Detect disconnection prompt
 promptOverlay.ChildAdded:Connect(function(child)
     if child.Name == 'ErrorPrompt' then
-        print("🚨 Disconnected! Rejoining private server...")
+        print("🚨 DISCONNECTION DETECTED! Force rejoining private server...")
         
-        -- OVERRIDE reconnect button by teleporting directly
-        TeleportService:Teleport(PLACE_ID, Players.LocalPlayer, nil, nil, PRIVATE_SERVER_CODE)
+        -- Wait 0.5 seconds for the prompt to fully load
+        task.wait(0.5)
         
-        -- Infinite retry loop (stops when teleport succeeds)
-        while true do
-            task.wait(3)
-            TeleportService:Teleport(PLACE_ID, Players.LocalPlayer, nil, nil, PRIVATE_SERVER_CODE)
-        end
+        -- Call the force teleport function
+        forceTeleportToPrivateServer()
     end
 end)
 
-print("✅ Private server rejoin is ACTIVE")
-print("🎯 Target server: " .. PRIVATE_SERVER_CODE)
+-- Also detect if the prompt is already there (in case script loads after disconnect)
+if promptOverlay:FindFirstChild('ErrorPrompt') then
+    print("🚨 Error prompt already detected! Force rejoining...")
+    forceTeleportToPrivateServer()
+end
+
+print("✅ PRIVATE SERVER FORCE REJOIN SCRIPT ACTIVE")
+print("🎯 Target: " .. PRIVATE_SERVER_CODE)
+print("💡 DO NOT click 'Reconnect' - let the script handle it!")
