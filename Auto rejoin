@@ -1,48 +1,33 @@
 -- PRIVATE SERVER REJOIN | Bee Swarm Simulator
--- Place this in your AUTO-EXECUTE folder
+-- CRITICAL: Place in AUTO-EXECUTE folder
 
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 
--- YOUR PRIVATE SERVER INFO
+-- YOUR PRIVATE SERVER DETAILS
 local PLACE_ID = 1537690962
 local PRIVATE_SERVER_CODE = "16707204235853911608327042947697"
 
--- Wait for the disconnection prompt to exist
+-- Wait for error prompt UI to load
 repeat task.wait() until CoreGui:FindFirstChild('RobloxPromptGui')
 local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay
 
--- Function to rejoin your private server
-local function rejoinPrivateServer()
-    print("⚠️ Disconnected! Rejoining private server...")
-    
-    -- Use the private server link code to teleport
-    local success, err = pcall(function()
-        TeleportService:Teleport(PLACE_ID, Players.LocalPlayer, nil, nil, PRIVATE_SERVER_CODE)
-    end)
-    
-    if not success then
-        warn("❌ Teleport failed: " .. tostring(err))
-    end
-    
-    -- Keep retrying every 3 seconds until successful
-    while true do
-        task.wait(3)
-        pcall(function()
-            TeleportService:Teleport(PLACE_ID, Players.LocalPlayer, nil, nil, PRIVATE_SERVER_CODE)
-        end)
-    end
-end
-
--- Detect when the disconnection/error prompt appears
+-- When disconnected, force private server join
 promptOverlay.ChildAdded:Connect(function(child)
     if child.Name == 'ErrorPrompt' then
-        print("🚨 Error prompt detected - rejoining in 1 second...")
-        task.wait(1) -- Brief wait to ensure prompt is fully loaded
-        rejoinPrivateServer()
+        print("🚨 Disconnected! Rejoining private server...")
+        
+        -- OVERRIDE reconnect button by teleporting directly
+        TeleportService:Teleport(PLACE_ID, Players.LocalPlayer, nil, nil, PRIVATE_SERVER_CODE)
+        
+        -- Infinite retry loop (stops when teleport succeeds)
+        while true do
+            task.wait(3)
+            TeleportService:Teleport(PLACE_ID, Players.LocalPlayer, nil, nil, PRIVATE_SERVER_CODE)
+        end
     end
 end)
 
-print("✅ Private server rejoin script is ACTIVE")
-print("🎯 Target: " .. PRIVATE_SERVER_CODE)
+print("✅ Private server rejoin is ACTIVE")
+print("🎯 Target server: " .. PRIVATE_SERVER_CODE)
