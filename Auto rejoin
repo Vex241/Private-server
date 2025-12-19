@@ -1,82 +1,96 @@
--- PRIVATE SERVER FORCE REJOIN | Bee Swarm Simulator
--- EXTREME METHOD: Override Reconnect button's core function
--- CRITICAL: Place in AUTO-EXECUTE folder
+-- PRIVATE SERVER FORCE REJOIN | Bee Swarm Simulator  
+-- AUTO-RETRY BUTTON METHOD  
+-- CRITICAL: Place in AUTO-EXECUTE folder  
+-- When you get disconnected, a "→ Rejoin Private" button appears and auto-clicks itself with infinite retries  
 
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local StarterGui = game:GetService("StarterGui")
+local TeleportService = game:GetService("TeleportService")  
+local Players = game:GetService("Players")  
+local CoreGui = game:GetService("CoreGui")  
 
--- YOUR PRIVATE SERVER
-local PLACE_ID = 1537690962
-local PRIVATE_SERVER_CODE = "16707204235853911608327042947697"
+-- ========== YOUR PRIVATE SERVER ==========  
+local PLACE_ID = 1537690962  
+local PRIVATE_SERVER_CODE = "16707204235853911608327042947697"  
+-- ========================================  
 
-repeat task.wait() until CoreGui:FindFirstChild('RobloxPromptGui')
-local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay
+-- Wait for Roblox prompt UI to load  
+repeat task.wait() until CoreGui:FindFirstChild('RobloxPromptGui')  
+local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay  
 
--- Function that replaces what "Reconnect" does
-local function replaceReconnectFunction()
-    -- Get the ErrorPrompt
-    local errorPrompt = promptOverlay:WaitForChild("ErrorPrompt")
-    
-    -- Navigate to Reconnect button
-    local buttonArea = errorPrompt.MessageArea.ErrorFrame.ButtonArea
-    local reconnectButton = buttonArea:FindFirstChild("ReconnectButton") or 
-                           buttonArea:FindFirstChild("Button2") or 
-                           buttonArea:GetChildren()[2]
-    
-    if not reconnectButton then
-        warn("❌ Could not find Reconnect button")
-        return false
-    end
-    
-    -- CHANGE THE BUTTON'S FUNCTION
-    -- First, remove ALL existing connections
-    for _, conn in ipairs(getconnections(reconnectButton.MouseButton1Up)) do
-        conn:Disconnect()
-    end
-    
-    -- Add our private server teleport
-    reconnectButton.MouseButton1Up:Connect(function()
-        print("🚨 Reconnect button clicked! Redirecting to private server...")
+-- Function that attempts rejoin with INFINITE RETRY  
+local function attemptRejoin()  
+    while true do  
+        local success, err = pcall(function()  
+            TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})  
+        end)  
         
-        -- Hide the prompt
-        errorPrompt.Enabled = false
+        if success then  
+            print("✅ Teleport initiated!")  
+            return  
+        end  
         
-        -- Force private server teleport
-        TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
-        
-        -- Aggressive retry loop
-        while true do
-            task.wait(2)
-            TeleportService:TeleportToPrivateServer(PLACE_ID, PRIVATE_SERVER_CODE, {Players.LocalPlayer})
-        end
-    end)
+        -- WiFi still down or error - retry in 2 seconds  
+        warn("❌ Failed: " .. tostring(err) .. " | Retrying in 2 seconds...")  
+        task.wait(2)  
+    end  
+end  
+
+-- Function to add the "Rejoin Private" button  
+local function addRejoinButton()  
+    local errorPrompt = promptOverlay:WaitForChild("ErrorPrompt")  
     
-    -- Change button text to show it's modified
-    local textLabel = reconnectButton:FindFirstChild("ButtonText")
-    if textLabel then
-        textLabel.Text = "→ Private Server"
-        textLabel.TextColor3 = Color3.fromRGB(0, 255, 0) -- Green
-    end
+    -- Make space for button  
+    errorPrompt.Size = UDim2.new(0, 400, 0, 280)  
     
-    print("✅ Reconnect button successfully hijacked!")
-    return true
-end
+    -- Navigate UI hierarchy  
+    local buttonArea = errorPrompt.MessageArea.ErrorFrame.ButtonArea  
+    local layout = buttonArea:FindFirstChild("ButtonLayout") or buttonArea:FindFirstChild("UIListLayout")  
+    if layout then  
+        layout.Padding = UDim.new(0, 5)  
+    end  
+    
+    -- Clone existing button  
+    local baseButton = buttonArea:FindFirstChild("LeaveButton") or buttonArea:GetChildren()[1]  
+    if not baseButton then return end  
+    
+    local rejoinButton = baseButton:Clone()  
+    rejoinButton.Parent = buttonArea  
+    rejoinButton.Name = "PrivateRejoinButton"  
+    
+    -- Set text  
+    local buttonText = rejoinButton:FindFirstChild("ButtonText")  
+    if buttonText then  
+        buttonText.Text = "→ Rejoin Private"  
+        buttonText.TextColor3 = Color3.fromRGB(0, 255, 0)  
+    end  
+    
+    -- When clicked: start infinite retry loop  
+    rejoinButton.MouseButton1Up:Connect(function()  
+        print("🚨 Button clicked! Starting rejoin attempts...")  
+        errorPrompt.Enabled = false  
+        task.spawn(attemptRejoin)  
+    end)  
+    
+    print("✅ Private rejoin button added!")  
+    
+    -- AUTO-CLICK AFTER 3 SECONDS  
+    task.wait(3)  
+    print("🤖 Auto-clicking button...")  
+    rejoinButton:Activate()  
+end  
 
--- Detect disconnection prompt
-promptOverlay.ChildAdded:Connect(function(child)
-    if child.Name == 'ErrorPrompt' then
-        task.wait(0.5)
-        replaceReconnectFunction()
-    end
-end)
+-- Detect disconnection  
+promptOverlay.ChildAdded:Connect(function(child)  
+    if child.Name == 'ErrorPrompt' then  
+        print("🚨 Disconnected! Adding rejoin button...")  
+        task.wait(0.5)  
+        addRejoinButton()  
+    end  
+end)  
 
--- If already disconnected
-if promptOverlay:FindFirstChild('ErrorPrompt') then
-    replaceReconnectFunction()
-end
+-- If already disconnected  
+if promptOverlay:FindFirstChild('ErrorPrompt') then  
+    addRejoinButton()  
+end  
 
-print("✅ PRIVATE SERVER RECONNECT OVERRIDE IS ACTIVE")
-print("🎯 When you click 'Reconnect', it will go to your private server!")
-print("🎯 Or wait 5 seconds and it will click itself!")
+print("✅ Private server button script ACTIVE")  
+print("🎯 When disconnected, wait 3 seconds or click '→ Rejoin Private'")  
